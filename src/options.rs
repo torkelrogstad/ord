@@ -7,8 +7,8 @@ use {super::*, bitcoincore_rpc::Auth};
     .args(&["chain_argument", "signet", "regtest", "testnet"]),
 ))]
 pub struct Options {
-  #[arg(long, help = "Load Bitcoin Core data dir from <BITCOIN_DATA_DIR>.")]
-  pub(crate) bitcoin_data_dir: Option<PathBuf>,
+  #[arg(long, help = "Load Bitcoin Core data dir from <BITCOIN_DATA_DIR>.", default_value_os_t = Options::default_bitcoin_data_dir())]
+  pub(crate) bitcoin_data_dir: PathBuf,
   #[arg(long, help = "Authenticate to Bitcoin Core RPC with <RPC_PASS>.")]
   pub(crate) bitcoin_rpc_pass: Option<String>,
   #[arg(long, help = "Authenticate to Bitcoin Core RPC as <RPC_USER>.")]
@@ -122,27 +122,27 @@ impl Options {
       return Ok(cookie_file.clone());
     }
 
-    let path = if let Some(bitcoin_data_dir) = &self.bitcoin_data_dir {
-      bitcoin_data_dir.clone()
-    } else if cfg!(target_os = "linux") {
-      dirs::home_dir()
-        .ok_or_else(|| anyhow!("failed to get cookie file path: could not get home dir"))?
-        .join(".bitcoin")
-    } else {
-      dirs::data_dir()
-        .ok_or_else(|| anyhow!("failed to get cookie file path: could not get data dir"))?
-        .join("Bitcoin")
-    };
-
-    let path = self.chain().join_with_data_dir(&path);
+    let path = self.chain().join_with_data_dir(&self.bitcoin_data_dir);
 
     Ok(path.join(".cookie"))
+  }
+
+  fn default_bitcoin_data_dir() -> PathBuf {
+    if cfg!(target_os = "linux") {
+      return dirs::home_dir()
+        .map(|dir| dir.join(".bitcoin"))
+        .expect("failed to get cookie file path: could not get home dir");
+    }
+
+    dirs::data_dir()
+      .map(|dir| dir.join("Bitcoin"))
+      .expect("failed to get cookie file path: could not get data dir")
   }
 
   fn default_data_dir() -> PathBuf {
     dirs::data_dir()
       .map(|dir| dir.join("ord"))
-      .expect("failed to retrieve data dir")
+      .expect("failed to retrieve default data dir")
   }
 
   pub(crate) fn data_dir(&self) -> PathBuf {
